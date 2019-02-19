@@ -53,9 +53,9 @@ func WithErrorEncoder(encoder gokithttp.ErrorEncoder) Option {
 func WithTransactor(transactor func(*http.Request) (*http.Response, error)) Option {
 	return func(h *Handler) {
 		if transactor != nil {
-			h.transactor = transactor
+			h.client.Do = transactor
 		} else {
-			h.transactor = http.DefaultClient.Do
+			h.client.Do = http.DefaultClient.Do
 		}
 	}
 }
@@ -147,7 +147,7 @@ type Handler struct {
 	after           []FanoutResponseFunc
 	failure         []FanoutResponseFunc
 	shouldTerminate ShouldTerminateFunc
-	transactor      func(*http.Request) (*http.Response, error)
+	client          *http.Client
 }
 
 // New creates a fanout Handler.  The Endpoints strategy is required, and this constructor function will
@@ -155,7 +155,7 @@ type Handler struct {
 //
 // By default, all fanout requests have the same HTTP method as the original request, but no body is set..  Clients must use the OriginalBody
 // strategy to set the original request's body on each fanout request.
-func New(e Endpoints, options ...Option) *Handler {
+func New(e Endpoints, options ...Option, clientOptions ClientOptions) *Handler {
 	if e == nil {
 		panic("An Endpoints strategy is required")
 	}
@@ -164,7 +164,7 @@ func New(e Endpoints, options ...Option) *Handler {
 		endpoints:       e,
 		errorEncoder:    gokithttp.DefaultErrorEncoder,
 		shouldTerminate: DefaultShouldTerminate,
-		transactor:      http.DefaultClient.Do,
+		client:          NewHTTPClient(clientOptions),
 	}
 
 	for _, o := range options {
@@ -227,7 +227,7 @@ func (h *Handler) execute(logger log.Logger, spanner tracing.Spanner, results ch
 		}
 	)
 
-	result.Response, result.Err = h.transactor(request)
+	result.Response, result.Err = h.client.Do(request)
 	switch {
 	case result.Response != nil:
 		result.StatusCode = result.Response.StatusCode
