@@ -1,5 +1,7 @@
 package wrp
 
+import "regexp"
+
 //go:generate codecgen -st "wrp" -o messages_codec.go messages.go
 
 // Typed is implemented by any WRP type which is associated with a MessageType.  All
@@ -80,6 +82,15 @@ type Message struct {
 	ServiceName             string            `wrp:"service_name,omitempty"`
 	URL                     string            `wrp:"url,omitempty"`
 	PartnerIDs              []string          `wrp:"partner_ids,omitempty"`
+}
+
+func (msg *Message) FindEventStringSubMatch() []string {
+	eventPattern := regexp.MustCompile(`^event:(?P<event>[^/]+)`)
+	event := "unknown"
+	if match != nil {
+		event = match[1]
+	}
+	return event
 }
 
 func (msg *Message) MessageType() MessageType {
